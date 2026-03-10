@@ -2,23 +2,28 @@ services:
     nginx:
         image: nginx:latest
         ports:
+            # маршрутизация портов: слева порт на хост-машине, справа — внутри контейнера
             - "8080:80"
         volumes:
-            - ./hosts:/etc/nginx/conf.d
-            - ./www:/var/www
-            - ./logs:/var/log/nginx
+            # монтируем директории: слева путь на хост-машине, справа — куда монтируется в контейнере
+            - ./hosts:/etc/nginx/conf.d   # конфиги виртуальных хостов
+            - ./www:/var/www              # файлы проектов
+            - ./logs:/var/log/nginx       # логи nginx
         networks:
             - app
         depends_on:
+            # nginx запустится только после того как поднимется php
             - php
 
     php:
+        # у нас свой образ для PHP, указываем путь к нему — Docker сам его соберёт
         build: ./images/php
         volumes:
             - ./www:/var/www
         networks:
             - app
         depends_on:
+            # php запустится только после того как поднимется mysql
             - mysql
 
     mysql:
@@ -26,18 +31,22 @@ services:
         ports:
             - "3306:3306"
         volumes:
+            # данные БД хранятся на хост-машине — при пересборке контейнера данные не потеряются
             - ./mysql:/var/lib/mysql
         environment:
+            # задаём пароль для root пользователя
             MYSQL_ROOT_PASSWORD: secret
         networks:
             - app
 
     pma:
         image: phpmyadmin:latest
+        # always — контейнер будет перезапускаться автоматически при падении или перезагрузке системы
         restart: always
         ports:
             - "8183:80"
         environment:
+            # PMA_HOST — имя сервиса к которому подключается phpMyAdmin, в нашем случае это mysql
             PMA_HOST: mysql
             MYSQL_USERNAME: root
             MYSQL_ROOT_PASSWORD: secret
@@ -46,6 +55,8 @@ services:
         depends_on:
             - mysql
 
+# общая сеть для всех контейнеров.
+# контейнеры в одной сети видят друг друга по имени сервиса: php, mysql, nginx и т.д.
 networks:
     app:
         driver: bridge
